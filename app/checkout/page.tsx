@@ -12,6 +12,8 @@ export default function CheckoutPage() {
   const qty = Math.max(1, Number(searchParams.get("qty")) || 1);
   const subtotal = (PRICE * qty).toFixed(2);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     name: "",
     address: "",
@@ -20,9 +22,30 @@ export default function CheckoutPage() {
     zip: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          quantity: qty,
+          total: PRICE * qty,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || res.statusText);
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -59,6 +82,9 @@ export default function CheckoutPage() {
         <h1 className="text-2xl font-semibold text-amber-900">Checkout</h1>
         <div className="mt-8 grid gap-8 sm:grid-cols-2">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {error && (
+              <p className="text-sm text-red-600">{error}</p>
+            )}
             <h2 className="font-medium text-amber-900">Shipping Address</h2>
             <input
               type="text"
@@ -108,9 +134,10 @@ export default function CheckoutPage() {
             </div>
             <button
               type="submit"
-              className="mt-4 w-full rounded-full bg-amber-600 py-3 font-medium text-white hover:bg-amber-700"
+              disabled={loading}
+              className="mt-4 w-full rounded-full bg-amber-600 py-3 font-medium text-white hover:bg-amber-700 disabled:opacity-50"
             >
-              Place Order
+              {loading ? "Placing Order…" : "Place Order"}
             </button>
           </form>
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-amber-200/50">
